@@ -902,9 +902,9 @@ MIT License
 ## 📮 联系方式
 
 如有问题或建议，欢迎通过以下方式联系：
-- 📧 Email: your-email@example.com
-- 🐛 Issues: [GitHub Issues](https://github.com/your-username/build-doctor-agent/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/your-username/build-doctor-agent/discussions)
+- 📧 Email: 2671618669@qq.com
+- 🐛 Issues: [GitHub Issues](https://github.com/JoySun-23/build-doctor-agent/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/JoySun-23/build-doctor-agent/discussions)
 
 ---
 
