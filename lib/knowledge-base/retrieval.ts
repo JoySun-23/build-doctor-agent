@@ -112,12 +112,101 @@ export function extractErrorFeatures(log: string): string {
 }
 
 /**
+ * 基于关键词匹配的检索（不需要 OpenAI API）
+ */
+function keywordBasedRetrieval(
+  log: string,
+  topK: number = 3
+): RetrievalResult[] {
+  const logLower = log.toLowerCase();
+  const results: RetrievalResult[] = [];
+
+  // 提取日志中的关键词
+  const logKeywords = new Set<string>();
+
+  // 错误类型关键词
+  const errorPatterns = [
+    /ERESOLVE/i, /TS\d{4}/, /Cannot find module/i,
+    /heap out of memory/i, /EADDRINUSE/i, /peer dependency/i,
+    /Module parse failed/i, /Circular dependency/i,
+    /ENOENT/i, /EACCES/i, /syntax error/i
+  ];
+
+  errorPatterns.forEach(pattern => {
+    const match = log.match(pattern);
+    if (match) logKeywords.add(match[0].toLowerCase());
+  });
+
+  // 包名
+  const packagePattern = /(?:from|in|package:)\s+([a-z0-9@/-]+)/gi;
+  let match;
+  while ((match = packagePattern.exec(log)) !== null) {
+    logKeywords.add(match[1].toLowerCase());
+  }
+
+  // 对每个知识库条目计算匹配分数
+  for (const entry of knowledgeBase) {
+    let score = 0;
+    const entryText = `${entry.errorPattern} ${entry.errorMessage} ${entry.errorType}`.toLowerCase();
+
+    // 1. 错误类型完全匹配（高权重）
+    if (logLower.includes(entry.errorPattern.toLowerCase())) {
+      score += 50;
+    }
+
+    // 2. 错误类型匹配
+    if (logLower.includes(entry.errorType)) {
+      score += 30;
+    }
+
+    // 3. 关键词匹配
+    logKeywords.forEach(keyword => {
+      if (entryText.includes(keyword)) {
+        score += 10;
+      }
+    });
+
+    // 4. 标签匹配
+    if (entry.tags) {
+      entry.tags.forEach(tag => {
+        if (logLower.includes(tag.toLowerCase())) {
+          score += 5;
+        }
+      });
+    }
+
+    // 归一化分数到 0-1
+    const normalizedScore = Math.min(score / 100, 1);
+
+    results.push({
+      entry,
+      score: normalizedScore,
+      distance: 1 - normalizedScore,
+    });
+  }
+
+  // 按分数排序并返回 top K
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, topK);
+}
+
+/**
  * 检索相关的知识库条目
+ * 如果有 OPENAI_API_KEY，使用向量检索；否则使用关键词匹配
  */
 export async function retrieveRelevantKnowledge(
   log: string,
   topK: number = 3
 ): Promise<RetrievalResult[]> {
+  // 如果没有 OpenAI API Key，使用关键词匹配
+  if (!process.env.OPENAI_API_KEY) {
+    console.log('🔍 Using keyword-based retrieval (no OpenAI API Key)');
+    return keywordBasedRetrieval(log, topK);
+  }
+
+  // 使用向量检索
+  console.log('🔍 Using vector-based retrieval (OpenAI embeddings)');
+
   // 1. 提取错误特征
   const errorFeatures = extractErrorFeatures(log);
 
